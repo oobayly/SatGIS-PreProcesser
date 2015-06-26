@@ -68,16 +68,8 @@ namespace SatGIS_PreProcesser {
       string trgName = kmzFile.Name.Replace(kmzFile.Extension, ".kml");
       FileInfo trgFile = new FileInfo(Path.Combine(dir.FullName, trgName));
 
-      //byte[] buff = new byte[4096];
       string kmlText;
       using (Stream src = zip.GetInputStream(entry)) {
-        /*			using (FileStream trg = new FileStream(trgFile.FullName, FileMode.Create, FileAccess.Write)) {
-                        int read;
-                        do {
-                            read = src.Read(buff, 0, buff.Length);
-                            trg.Write(buff, 0, read);
-                        } while (read > 0);
-                    }*/
         using (StreamReader reader = new StreamReader(src)) {
           kmlText = reader.ReadToEnd();
         }
