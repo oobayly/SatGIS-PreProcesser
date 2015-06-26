@@ -40,7 +40,7 @@ namespace SatGIS_PreProcesser {
     }
 
     public void ProcessPath(DirectoryInfo src) {
-      DirectoryInfo trg = new DirectoryInfo(src + @"\Processed\");
+      DirectoryInfo trg = new DirectoryInfo(Path.Combine(src.FullName, "Processed"));
       if (!trg.Exists)
         trg.Create();
 
@@ -51,21 +51,22 @@ namespace SatGIS_PreProcesser {
       }
     }
 
-    public void ProcessFile(FileInfo fi, DirectoryInfo trg) {
-      using (FileStream fs = fi.OpenRead()) {
+    public void ProcessFile(FileInfo kmzFile, DirectoryInfo trg) {
+      using (FileStream fs = kmzFile.OpenRead()) {
         using (ZipFile zip = new ZipFile(fs)) {
           for (int i = 0; i < zip.Count; i++) {
             ZipEntry entry = zip[i];
             if (entry.Name.EndsWith(".kml")) {
-              ProcessEntry(zip, entry, trg);
+              ProcessEntry(kmzFile, zip, entry, trg);
             }
           }
         }
       }
     }
 
-    public void ProcessEntry(ZipFile zip, ZipEntry entry, DirectoryInfo dir) {
-      FileInfo trgFile = new FileInfo(dir.FullName + "\\" + entry.Name);
+    public void ProcessEntry(FileInfo kmzFile, ZipFile zip, ZipEntry entry, DirectoryInfo dir) {
+      string trgName = kmzFile.Name.Replace(kmzFile.Extension, ".kml");
+      FileInfo trgFile = new FileInfo(Path.Combine(dir.FullName, trgName));
 
       //byte[] buff = new byte[4096];
       string kmlText;
