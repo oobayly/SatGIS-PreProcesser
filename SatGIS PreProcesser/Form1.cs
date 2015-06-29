@@ -33,10 +33,38 @@ namespace SatGIS_PreProcesser {
 
       try {
         ProcessPath(new DirectoryInfo(folderSelector.SelectedPath));
+#if DEBUG
+      } finally { }
+#else
       } catch (Exception ex) {
         MessageBox.Show(this, ex.Message + Environment.NewLine + ex.StackTrace, this.Text,
             MessageBoxButtons.OK, MessageBoxIcon.Error);
       }
+#endif
+    }
+
+    private void MergeFiles(DirectoryInfo src, IEnumerable<FileInfo> files) {
+      XmlDocument merged = new XmlDocument();
+      XmlElement kml = merged.CreateElement("", "kml", "http://earth.google.com/kml/2.1");
+      merged.AppendChild(kml);
+      XmlElement document = merged.CreateElement("", "Document", "");
+      merged.DocumentElement.AppendChild(document);
+
+      foreach (FileInfo fi in files) {
+        XmlDocument doc = new XmlDocument();
+        doc.Load(fi.FullName);
+
+        XmlNamespaceManager mgr = new XmlNamespaceManager(doc.NameTable);
+        mgr.AddNamespace("x", doc.DocumentElement.NamespaceURI);
+
+        // Line
+        XmlNode line = doc.SelectSingleNode(@"//x:Placemark/x:LineString", mgr);
+        if (line != null) {
+          document.AppendChild(merged.ImportNode(line.ParentNode, true));
+        }
+      }
+
+      merged.Save(Path.Combine(src.FullName, "All.kml"));
     }
 
     public void ProcessPath(DirectoryInfo src) {
@@ -46,25 +74,32 @@ namespace SatGIS_PreProcesser {
 
       FileInfo[] files = src.GetFiles("*.kmz");
       lblProcessing.Text = string.Format("Processing {0} files in '{1}'.", files.Length, src);
+      List<FileInfo> processed = new List<FileInfo>();
       foreach (FileInfo fi in files) {
-        ProcessFile(fi, trg);
+        FileInfo output = ProcessFile(fi, trg);
+        if (output != null)
+          processed.Add(output);
       }
+
+      MergeFiles(trg, processed);
     }
 
-    public void ProcessFile(FileInfo kmzFile, DirectoryInfo trg) {
+    public FileInfo ProcessFile(FileInfo kmzFile, DirectoryInfo trg) {
       using (FileStream fs = kmzFile.OpenRead()) {
         using (ZipFile zip = new ZipFile(fs)) {
           for (int i = 0; i < zip.Count; i++) {
             ZipEntry entry = zip[i];
             if (entry.Name.EndsWith(".kml")) {
-              ProcessEntry(kmzFile, zip, entry, trg);
+              return ProcessEntry(kmzFile, zip, entry, trg);
             }
           }
         }
       }
+
+      return null;
     }
 
-    public void ProcessEntry(FileInfo kmzFile, ZipFile zip, ZipEntry entry, DirectoryInfo dir) {
+    public FileInfo ProcessEntry(FileInfo kmzFile, ZipFile zip, ZipEntry entry, DirectoryInfo dir) {
       string trgName = kmzFile.Name.Replace(kmzFile.Extension, ".kml");
       FileInfo trgFile = new FileInfo(Path.Combine(dir.FullName, trgName));
 
@@ -87,6 +122,8 @@ namespace SatGIS_PreProcesser {
       // And save
       doc.Save(trgFile.FullName);
       listProcessed.Items.Add(string.Format("Processed {0}", trgFile.Name));
+
+      return trgFile;
     }
   }
 }
